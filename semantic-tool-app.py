@@ -73,7 +73,7 @@ st.header("Configuration des colonnes")
 
 column_config_type = st.selectbox(
     "Sélectionner un **type de configuration** :",
-    ["SEMrush", "Ahrefs", "Google Search Console", "Custom"]
+    ["SEMrush", "Ahrefs", "Custom"]
 )
 
 # Définir les configurations prédéfinies
