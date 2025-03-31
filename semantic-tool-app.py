@@ -63,104 +63,17 @@ with st.expander("Comment utiliser ce script ?", expanded=True):
     5. Cliquer sur **Lancer l'analyse**.
     """)
 
-# Function to detect columns in a dataframe
-def detect_columns(df):
-    """Tente de détecter automatiquement les colonnes importantes dans le DataFrame."""
-    detected_columns = {
-        "keyword": None,
-        "volume": None,
-        "position": None,
-        "url": None
-    }
-    
-    # Convertir les noms de colonnes en minuscules pour la comparaison
-    df_cols_lower = [col.lower() for col in df.columns]
-    
-    # Dictionnaire des noms de colonnes possibles pour chaque type
-    column_patterns = {
-        "keyword": ["keyword", "mot-clé", "mot clé", "mot cle", "requête", "query", "phrase-clé", "search term", "terme de recherche"],
-        "volume": ["volume", "search volume", "volume de recherche", "monthly volume", "volume mensuel", "global volume"],
-        "position": ["position", "pos", "pos.", "positions", "ranking", "rank", "pos. moy.", "position moyenne"],
-        "url": ["url", "target url", "url cible", "page", "url positionnée", "landing page", "ranking url", "page cible", "landing url"]
-    }
-
-    # Recherche exacte puis partielle
-    for col_type, patterns in column_patterns.items():
-        # Recherche exacte
-        for i, col in enumerate(df_cols_lower):
-            if col in patterns:
-                detected_columns[col_type] = df.columns[i]
-                break
-        
-        # Si pas trouvé, recherche partielle
-        if detected_columns[col_type] is None:
-            for i, col in enumerate(df_cols_lower):
-                if any(pattern in col for pattern in patterns):
-                    detected_columns[col_type] = df.columns[i]
-                    break
-    
-    return detected_columns
-
 # File uploader
 uploaded_files = st.file_uploader("Importer les fichiers de données :", 
                                   type=["csv", "xlsx"], 
                                   accept_multiple_files=True)
 
-# Try to detect file source if files are uploaded
-source_detected = None
-column_mapping = None
-
-if uploaded_files:
-    with st.spinner("Analyse des fichiers en cours..."):
-        try:
-            # Lire le premier fichier pour détecter les colonnes
-            first_file = uploaded_files[0]
-            file_extension = first_file.name.split('.')[-1].lower()
-            
-            if file_extension == 'csv':
-                sample_df = pd.read_csv(first_file)
-            elif file_extension == 'xlsx':
-                sample_df = pd.read_excel(first_file)
-            
-            # Réinitialiser le pointeur du fichier pour une utilisation ultérieure
-            first_file.seek(0)
-            
-            # Afficher les colonnes détectées pour aider au débogage
-            st.write("Colonnes disponibles:", sample_df.columns.tolist())
-            
-            # Détecter les colonnes
-            column_mapping = detect_columns(sample_df)
-            
-            # Déterminer la source probable
-            col_lower = [col.lower() for col in sample_df.columns]
-            if any('semrush' in col for col in col_lower):
-                source_detected = "SEMrush"
-            elif any('ahrefs' in col for col in col_lower):
-                source_detected = "Ahrefs"
-            elif 'query' in col_lower and 'page' in col_lower:
-                source_detected = "Google Search Console"
-            
-            if source_detected:
-                st.success(f"Source détectée: {source_detected}")
-        except Exception as e:
-            st.warning(f"Erreur lors de la détection automatique: {str(e)}")
-
 # Configuration des colonnes
 st.header("Configuration des colonnes")
 
-column_config_options = ["Détection automatique", "SEMrush", "Ahrefs", "Google Search Console", "Custom"]
-# Si une source a été détectée, la sélectionner par défaut
-default_config_index = 0
-if source_detected:
-    try:
-        default_config_index = column_config_options.index(source_detected)
-    except ValueError:
-        default_config_index = 0
-
 column_config_type = st.selectbox(
     "Sélectionner un **type de configuration** :",
-    column_config_options,
-    index=default_config_index
+    ["SEMrush", "Ahrefs", "Google Search Console", "Custom"]
 )
 
 # Définir les configurations prédéfinies
@@ -188,12 +101,6 @@ config_presets = {
         "volume": "",
         "position": "",
         "url": ""
-    },
-    "Détection automatique": {
-        "keyword": column_mapping["keyword"] if column_mapping else "",
-        "volume": column_mapping["volume"] if column_mapping else "",
-        "position": column_mapping["position"] if column_mapping else "",
-        "url": column_mapping["url"] if column_mapping else ""
     }
 }
 
@@ -344,9 +251,6 @@ def process_data(files, config, filters, create_tabs):
     dfs = {}
     all_data = []
     
-    # Colonnes mappées pour chaque fichier
-    file_columns = {}
-    
     # Read each file
     for file in files:
         file_extension = file.name.split('.')[-1].lower()
@@ -360,80 +264,34 @@ def process_data(files, config, filters, create_tabs):
             else:
                 st.error(f"Format de fichier non pris en charge: {file.name}")
                 continue
-            
-            # Essayer de détecter automatiquement les colonnes si nécessaire
-            if not keyword_column or not position_column or not url_column:
-                detected_cols = detect_columns(df)
-                file_keyword_col = keyword_column or detected_cols["keyword"]
-                file_volume_col = volume_column or detected_cols["volume"]
-                file_position_col = position_column or detected_cols["position"]
-                file_url_col = url_column or detected_cols["url"]
                 
-                # Stocker le mapping pour ce fichier
-                file_columns[file_name] = {
-                    "keyword": file_keyword_col,
-                    "volume": file_volume_col,
-                    "position": file_position_col,
-                    "url": file_url_col
-                }
-                
-                # Informer l'utilisateur
-                st.write(f"Colonnes détectées pour {file.name}:")
-                st.write(f"- Mot-clé: {file_keyword_col}")
-                st.write(f"- Position: {file_position_col}")
-                st.write(f"- URL: {file_url_col}")
-                if file_volume_col:
-                    st.write(f"- Volume: {file_volume_col}")
-            else:
-                file_keyword_col = keyword_column
-                file_volume_col = volume_column
-                file_position_col = position_column
-                file_url_col = url_column
-                
-                file_columns[file_name] = {
-                    "keyword": file_keyword_col,
-                    "volume": file_volume_col,
-                    "position": file_position_col,
-                    "url": file_url_col
-                }
-            
             # Check if required columns exist
-            required_columns = [file_keyword_col, file_position_col, file_url_col]
-            required_columns = [col for col in required_columns if col]  # Filtrer les valeurs vides
-            
+            required_columns = [keyword_column, position_column, url_column]
+            if volume_column:  # Only check if provided
+                required_columns.append(volume_column)
+                
             missing_columns = [col for col in required_columns if col not in df.columns]
             if missing_columns:
                 st.error(f"Colonnes manquantes dans {file.name}: {', '.join(missing_columns)}")
+                # Afficher les colonnes disponibles pour aider
+                st.info(f"Colonnes disponibles dans {file.name}: {', '.join(df.columns)}")
                 continue
             
             # Add source column
             df['Source'] = file_name
             
             # Clean and normalize data
-            df[file_keyword_col] = df[file_keyword_col].astype(str).str.lower().str.strip()
-            df[file_keyword_col] = df[file_keyword_col].apply(lambda x: re.sub(r'\s+', ' ', x))
+            df[keyword_column] = df[keyword_column].astype(str).str.lower().str.strip()
+            df[keyword_column] = df[keyword_column].apply(lambda x: re.sub(r'\s+', ' ', x))
             
             # Ensure position column is numeric
-            df[file_position_col] = pd.to_numeric(df[file_position_col], errors='coerce')
+            df[position_column] = pd.to_numeric(df[position_column], errors='coerce')
             
             # Clean URL if present
-            if file_url_col in df.columns:
-                df[file_url_col] = df[file_url_col].astype(str).str.lower()
-                df[file_url_col] = df[file_url_col].apply(lambda x: re.sub(r'^https?://', '', x))
-                df[file_url_col] = df[file_url_col].apply(lambda x: re.sub(r'/$', '', x))
-            
-            # Rename columns for consistency across files
-            column_mapping = {
-                file_keyword_col: "keyword",
-                file_position_col: "position",
-                file_url_col: "url"
-            }
-            
-            if file_volume_col and file_volume_col in df.columns:
-                column_mapping[file_volume_col] = "volume"
-            
-            # Rename columns
-            df = df.rename(columns=column_mapping)
+            if url_column in df.columns:
+                df[url_column] = df[url_column].astype(str).str.lower()
+                df[url_column] = df[url_column].apply(lambda x: re.sub(r'^https?://', '', x))
+                df[url_column] = df[url_column].apply(lambda x: re.sub(r'/$', '', x))
             
             # Add to list of dataframes
             dfs[file_name] = df
@@ -448,16 +306,10 @@ def process_data(files, config, filters, create_tabs):
     # Combine all data
     combined_data = pd.concat(all_data, ignore_index=True)
     
-    # Standardized column names
-    std_keyword_col = "keyword"
-    std_position_col = "position"
-    std_url_col = "url"
-    std_volume_col = "volume"
-    
     # Process for semantic audit
     # 1. Group by keyword and count number of sites
-    keyword_counts = combined_data.groupby(std_keyword_col)['Source'].nunique().reset_index()
-    keyword_counts.columns = [std_keyword_col, 'Nombre de sites']
+    keyword_counts = combined_data.groupby(keyword_column)['Source'].nunique().reset_index()
+    keyword_counts.columns = [keyword_column, 'Nombre de sites']
     
     # 2. Initialize filtered keywords based on settings
     if min_sites_filter > 0:
@@ -467,12 +319,12 @@ def process_data(files, config, filters, create_tabs):
     
     # 3. For each keyword, count sites in top X positions
     if top_x_positions > 0:
-        top_positions_data = combined_data[combined_data[std_position_col] <= top_x_positions]
-        top_positions_counts = top_positions_data.groupby(std_keyword_col)['Source'].nunique().reset_index()
-        top_positions_counts.columns = [std_keyword_col, f'Nombre de sites dans le top {top_x_positions}']
+        top_positions_data = combined_data[combined_data[position_column] <= top_x_positions]
+        top_positions_counts = top_positions_data.groupby(keyword_column)['Source'].nunique().reset_index()
+        top_positions_counts.columns = [keyword_column, f'Nombre de sites dans le top {top_x_positions}']
         
         # Merge with filtered keywords
-        filtered_keywords = pd.merge(filtered_keywords, top_positions_counts, on=std_keyword_col, how='left')
+        filtered_keywords = pd.merge(filtered_keywords, top_positions_counts, on=keyword_column, how='left')
         filtered_keywords[f'Nombre de sites dans le top {top_x_positions}'].fillna(0, inplace=True)
         
         # Apply min_sites_top_x filter
@@ -482,29 +334,29 @@ def process_data(files, config, filters, create_tabs):
             ]
     
     # 4. Add volume information if available
-    if std_volume_col in combined_data.columns:
+    if volume_column and volume_column in combined_data.columns:
         # Take the max volume for each keyword (volumes might differ slightly between sources)
-        volumes = combined_data.groupby(std_keyword_col)[std_volume_col].max().reset_index()
-        filtered_keywords = pd.merge(filtered_keywords, volumes, on=std_keyword_col, how='left')
+        volumes = combined_data.groupby(keyword_column)[volume_column].max().reset_index()
+        filtered_keywords = pd.merge(filtered_keywords, volumes, on=keyword_column, how='left')
     
     # 5. Create position data for each source
     result_data = filtered_keywords.copy()
     
     for source_name, df in dfs.items():
         # Create a temporary dataframe with just keyword and position for this source
-        temp_df = df[[std_keyword_col, std_position_col]].copy()
-        temp_df.columns = [std_keyword_col, f'Position - {source_name}']
+        temp_df = df[[keyword_column, position_column]].copy()
+        temp_df.columns = [keyword_column, f'Position - {source_name}']
         
         # Merge with result data
-        result_data = pd.merge(result_data, temp_df, on=std_keyword_col, how='left')
+        result_data = pd.merge(result_data, temp_df, on=keyword_column, how='left')
     
     # 6. Sort by number of sites and volume if available
     sort_columns = ['Nombre de sites']
     if top_x_positions > 0 and f'Nombre de sites dans le top {top_x_positions}' in result_data.columns:
         sort_columns.insert(0, f'Nombre de sites dans le top {top_x_positions}')
     
-    if std_volume_col in result_data.columns:
-        sort_columns.append(std_volume_col)
+    if volume_column and volume_column in result_data.columns:
+        sort_columns.append(volume_column)
     
     result_data = result_data.sort_values(by=sort_columns, ascending=[False] * len(sort_columns))
     
@@ -516,7 +368,7 @@ def process_data(files, config, filters, create_tabs):
         summary['Total mots-clés'] = len(df)
         
         # Positions breakdown
-        positions = df[std_position_col].dropna()
+        positions = df[position_column].dropna()
         summary['Position moyenne'] = positions.mean() if not positions.empty else 0
         summary['Top 3'] = len(positions[positions <= 3])
         summary['Top 10'] = len(positions[positions <= 10])
@@ -525,15 +377,15 @@ def process_data(files, config, filters, create_tabs):
         summary['Top 100'] = len(positions[positions <= 100])
         
         # Volume data if available
-        if std_volume_col in df.columns:
-            vol_data = df[std_volume_col].dropna()
+        if volume_column and volume_column in df.columns:
+            vol_data = df[volume_column].dropna()
             summary['Volume total'] = vol_data.sum() if not vol_data.empty else 0
             summary['Volume moyen'] = vol_data.mean() if not vol_data.empty else 0
             
             # Volume by position range
-            summary['Volume Top 3'] = df[df[std_position_col] <= 3][std_volume_col].sum()
-            summary['Volume Top 10'] = df[df[std_position_col] <= 10][std_volume_col].sum()
-            summary['Volume Top 20'] = df[df[std_position_col] <= 20][std_volume_col].sum()
+            summary['Volume Top 3'] = df[df[position_column] <= 3][volume_column].sum()
+            summary['Volume Top 10'] = df[df[position_column] <= 10][volume_column].sum()
+            summary['Volume Top 20'] = df[df[position_column] <= 20][volume_column].sum()
         
         site_summaries[site_name] = summary
     
@@ -547,16 +399,16 @@ def process_data(files, config, filters, create_tabs):
         
         # Add interest metrics for each position range
         for start, end in position_ranges:
-            range_df = df[(df[std_position_col] >= start) & (df[std_position_col] <= end)]
+            range_df = df[(df[position_column] >= start) & (df[position_column] <= end)]
             
             # Keywords count in this range
             range_key = f"Mots-clés {start}-{end}"
             site_row[range_key] = len(range_df)
             
             # Volume in this range if available
-            if std_volume_col in df.columns:
+            if volume_column and volume_column in df.columns:
                 vol_key = f"Volume {start}-{end}"
-                site_row[vol_key] = range_df[std_volume_col].sum()
+                site_row[vol_key] = range_df[volume_column].sum()
         
         interest_data.append(site_row)
     
@@ -633,32 +485,6 @@ def process_data(files, config, filters, create_tabs):
         
         row += len(dfs) + 2
         
-        # Add column mapping information
-        presentation_ws.write(row, 0, 'Mapping des colonnes:', subtitle_format)
-        row += 1
-        
-        for file_name, cols in file_columns.items():
-            presentation_ws.write(row, 0, f"Fichier: {file_name}", subtitle_format)
-            row += 1
-            presentation_ws.write(row, 0, 'Colonne mot-clé:')
-            presentation_ws.write(row, 1, cols["keyword"])
-            row += 1
-            
-            presentation_ws.write(row, 0, 'Colonne position:')
-            presentation_ws.write(row, 1, cols["position"])
-            row += 1
-            
-            presentation_ws.write(row, 0, 'Colonne URL:')
-            presentation_ws.write(row, 1, cols["url"])
-            row += 1
-            
-            if cols["volume"]:
-                presentation_ws.write(row, 0, 'Colonne volume:')
-                presentation_ws.write(row, 1, cols["volume"])
-                row += 1
-            
-            row += 1
-        
         # Add filter information
         presentation_ws.write(row, 0, 'Paramètres de filtrage:', subtitle_format)
         row += 1
@@ -681,16 +507,16 @@ def process_data(files, config, filters, create_tabs):
         presentation_ws.write(row, 0, 'Statistiques globales:', subtitle_format)
         row += 1
         presentation_ws.write(row, 0, 'Nombre total de mots-clés analysés:')
-        presentation_ws.write(row, 1, len(combined_data[std_keyword_col].unique()))
+        presentation_ws.write(row, 1, len(combined_data[keyword_column].unique()))
         row += 1
         
         presentation_ws.write(row, 0, 'Mots-clés après filtrage:')
         presentation_ws.write(row, 1, len(result_data))
         row += 1
         
-        if std_volume_col in combined_data.columns:
+        if volume_column and volume_column in combined_data.columns:
             presentation_ws.write(row, 0, 'Volume total:')
-            presentation_ws.write(row, 1, combined_data[std_volume_col].sum())
+            presentation_ws.write(row, 1, combined_data[volume_column].sum())
             row += 1
         
         # 2. Write "Liste de mots-clés & concurrence" sheet
@@ -767,20 +593,83 @@ def process_data(files, config, filters, create_tabs):
                     site_ws.write(0, col_num, value, header_format)
                 
                 # Add position column formatting
-                if std_position_col in df.columns:
-                    pos_col = df.columns.get_loc(std_position_col)
-                    site_ws.conditional_format(1, pos_col, len(df), pos_col, {
-                        'type': '3_color_scale',
-                        'min_color': '#63BE7B',  # Green
-                        'mid_color': '#FFEB84',  # Yellow
-                        'max_color': '#F8696B',  # Red
-                        'min_type': 'num',
-                        'min_value': 1,
-                        'mid_type': 'num',
-                        'mid_value': 10,
-                        'max_type': 'num',
-                        'max_value': 30
-                    })
+                pos_col = df.columns.get_loc(position_column)
+                site_ws.conditional_format(1, pos_col, len(df), pos_col, {
+                    'type': '3_color_scale',
+                    'min_color': '#63BE7B',  # Green
+                    'mid_color': '#FFEB84',  # Yellow
+                    'max_color': '#F8696B',  # Red
+                    'min_type': 'num',
+                    'min_value': 1,
+                    'mid_type': 'num',
+                    'mid_value': 10,
+                    'max_type': 'num',
+                    'max_value': 30
+                })
     
     output.seek(0)
     return output
+
+# Process button - Toujours visible et actif
+if st.button("Lancer l'analyse"):
+    if not uploaded_files:
+        st.error("Veuillez importer au moins un fichier pour l'analyse.")
+    else:
+        # Prepare configuration
+        config = {
+            "keyword": keyword_col,
+            "volume": volume_col,
+            "position": position_col,
+            "url": url_col
+        }
+        
+        # Get filter values either from session state (for preset filters) or from input fields (for custom)
+        if filter_config_type != "Custom" and filter_config_type in filter_presets:
+            min_sites_val = filter_presets[filter_config_type]["min_sites"]
+            top_positions_val = filter_presets[filter_config_type]["top_positions"]
+            min_sites_top_val = filter_presets[filter_config_type]["min_sites_top_positions"]
+        else:
+            min_sites_val = min_sites
+            top_positions_val = top_positions
+            min_sites_top_val = min_sites_top
+        
+        filters = {
+            "min_sites": min_sites_val,
+            "top_positions": top_positions_val,
+            "min_sites_top_positions": min_sites_top_val
+        }
+        
+        # Show processing message
+        with st.spinner("Traitement des données en cours..."):
+            try:
+                # Process data
+                excel_data = process_data(uploaded_files, config, filters, create_specific_tabs)
+                
+                if excel_data:
+                    # Create download link
+                    b64 = base64.b64encode(excel_data.read()).decode()
+                    href = f'<a href="data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{b64}" download="analyse_semantique.xlsx" class="download-button">Télécharger le fichier Excel d\'analyse</a>'
+                    
+                    st.markdown("""
+                    <style>
+                    .download-button {
+                        display: inline-block;
+                        padding: 0.5em 1em;
+                        color: white;
+                        background-color: #4CAF50;
+                        text-decoration: none;
+                        border-radius: 4px;
+                        font-weight: bold;
+                        margin: 1em 0;
+                    }
+                    .download-button:hover {
+                        background-color: #45a049;
+                    }
+                    </style>
+                    """, unsafe_allow_html=True)
+                    
+                    st.markdown(href, unsafe_allow_html=True)
+                    st.success("Analyse terminée avec succès ! Cliquez sur le bouton ci-dessus pour télécharger le fichier d'analyse.")
+            except Exception as e:
+                st.error(f"Une erreur s'est produite lors du traitement des données: {str(e)}")
+                st.info("Si les noms de colonnes ne correspondent pas, veuillez vérifier les noms exacts dans vos fichiers.")
