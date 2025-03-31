@@ -90,12 +90,6 @@ config_presets = {
         "position": "Current position",
         "url": "Current URL"
     },
-    "Google Search Console": {
-        "keyword": "Query",
-        "volume": "",
-        "position": "Position",
-        "url": "Page"
-    },
     "Custom": {
         "keyword": "",
         "volume": "",
