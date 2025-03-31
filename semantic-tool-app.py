@@ -295,8 +295,7 @@ def process_data(files, config, filters, create_tabs):
             if url_column in df.columns:
                 df[url_column] = df[url_column].astype(str).str.lower()
                 df[url_column] = df[url_column].apply(lambda x: re.sub(r'^https?://', '', x))
-                df[url_column] = df[url_column].apply(lambda x: re.sub(r'/
-
+                df[url_column] = df[url_column].apply(lambda x: re.sub(r'/')
 # Process button
 if st.button("Lancer l'analyse", disabled=(selected_account == "Sélectionner un compte")):
     if not uploaded_files:
