@@ -87,8 +87,8 @@ config_presets = {
     "Ahrefs": {
         "keyword": "Keyword",
         "volume": "Volume",
-        "position": "Position",
-        "url": "URL"
+        "position": "Current position",
+        "url": "Current URL"
     },
     "Google Search Console": {
         "keyword": "Query",
