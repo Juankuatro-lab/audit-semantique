@@ -519,8 +519,8 @@ def process_data(files, config, filters, create_tabs):
             row += 1
         
         # 2. Write "Liste de mots-clés & concurrence" sheet
-        result_data.to_excel(writer, sheet_name='Liste de mots-clés & concurrence', index=False)
-        keywords_ws = writer.sheets['Liste de mots-clés & concurrence']
+        result_data.to_excel(writer, sheet_name='Mots-clés & concurrence', index=False)
+        keywords_ws = writer.sheets['Mots-clés & concurrence']
         
         # Format the keywords worksheet
         keywords_ws.set_column('A:A', 30)  # Keyword column
