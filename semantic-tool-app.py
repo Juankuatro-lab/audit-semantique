@@ -355,7 +355,6 @@ if st.button("Lancer l'analyse", disabled=(selected_account == "Sélectionner un
                 
                 st.markdown(href, unsafe_allow_html=True)
                 st.success("Analyse terminée avec succès ! Cliquez sur le bouton ci-dessus pour télécharger le fichier d'analyse.")
-, '', x))
             
             # Add to list of dataframes
             dfs[file_name] = df
