@@ -80,7 +80,7 @@ column_config_type = st.selectbox(
 config_presets = {
     "SEMrush": {
         "keyword": "Keyword",
-        "volume": "Search Volume"
+        "volume": "Search Volume",
         "position": "Position",
         "url": "URL"
     },
@@ -103,7 +103,6 @@ config_presets = {
         "url": ""
     }
 }
-
 # Afficher les champs de saisie en fonction de la configuration sélectionnée
 selected_config = config_presets[column_config_type]
 
