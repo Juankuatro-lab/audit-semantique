@@ -80,7 +80,7 @@ column_config_type = st.selectbox(
 config_presets = {
     "SEMrush": {
         "keyword": "Keyword",
-        "volume": "Volume",
+        "volume": "Search Volume"
         "position": "Position",
         "url": "URL"
     },
